@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ResponsiveContainer,
@@ -11,6 +12,9 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts'
+
+import QuestionBreakdown from "./QuestionBreakdown";
+
 import './AssessmentResults.css'
 
 interface AssessmentResults {
@@ -50,6 +54,8 @@ async function fetchAssessmentResults(instanceId: string) {
 }
 
 export default function AssessmentResults({ instanceId }: Props) {
+  const [questionFilter, setQuestionFilter] = useState<'all' | 'answered' | 'unanswered'>('all')
+
   const {
     data: results,
     isLoading,
@@ -105,6 +111,15 @@ export default function AssessmentResults({ instanceId }: Props) {
         }
       })
 
+  const allQuestions = Object.values(results.element_scores)
+    .flatMap((elementScore: any) => elementScore.question_answers || [])
+
+  const filteredQuestions = allQuestions.filter((q: any) => {
+    if (questionFilter === 'answered') return q.is_answered
+    if (questionFilter === 'unanswered') return !q.is_answered
+    return true
+  })
+
   return (
     <div className="assessment-results">
       <div className="results-header">
@@ -117,25 +132,25 @@ export default function AssessmentResults({ instanceId }: Props) {
       <div className="card progress-card">
         <h3>Progress</h3>
         <div className="progress-circle">
-          <svg width="120" height="120" viewBox="0 0 120 120">
+          <svg width="260" height="160" viewBox="0 0 160 160">
             <circle
-              cx="60"
-              cy="60"
-              r="54"
+              cx="80"
+              cy="80"
+              r="70"
               fill="none"
               stroke="#e0e0e0"
               strokeWidth="12"
             />
             <circle
-              cx="60"
-              cy="60"
-              r="54"
+              cx="80"
+              cy="80"
+              r="70"
               fill="none"
               stroke="#3498db"
               strokeWidth="12"
-              strokeDasharray={`${(results.completion_percentage / 100) * 339.292} 339.292`}
+              strokeDasharray={`${(results.completion_percentage / 100) * 439.822} 439.822`}
               strokeLinecap="round"
-              transform="rotate(-90 60 60)"
+              transform="rotate(-90 80 80)"
             />
           </svg>
           <div className="progress-text">
@@ -235,6 +250,42 @@ export default function AssessmentResults({ instanceId }: Props) {
         </div>
       )}
 
+      {/* { Object.values(results.element_scores).length > 0 && (
+        <div className="card question-card">
+            {Object.values(results.element_scores)
+            .flatMap((elementScore: any) => elementScore.question_answers || [])
+            .map((question: any) => {
+              return <QuestionBreakdown question={question}></QuestionBreakdown>
+            }
+  
+            )}
+        </div>
+      )} */}
+
+      {allQuestions.length > 0 && (
+        <div className="card question-card">
+          <h3>Question Breakdown</h3>
+          <div className="question-filter">
+            <label htmlFor="question-filter-select">Filter questions:</label>
+            <select
+              id="question-filter-select"
+              value={questionFilter}
+              onChange={(e) =>
+                setQuestionFilter(e.target.value as 'all' | 'answered' | 'unanswered')
+              }
+            >
+              <option value="all">All</option>
+              <option value="answered">Answered only</option>
+              <option value="unanswered">Unanswered only</option>
+            </select>
+          </div>
+
+          {filteredQuestions.map((question: any) => (
+            <QuestionBreakdown key={question.question_id} question={question} />
+          ))}
+        </div>
+      )}
+
       {/* Question Scores (non-reflection) */}
       {nonReflectionQuestionScores.length > 0 && (
         <div className="card question-scores-card">
@@ -267,6 +318,9 @@ export default function AssessmentResults({ instanceId }: Props) {
         </div>
       )}
 
+      {/* Question breakdown */}
+      
+
       {/* Insights */}
       {results.insights.length > 0 && (
         <div className="card insights-card">
@@ -287,3 +341,133 @@ export default function AssessmentResults({ instanceId }: Props) {
     </div>
   )
 }
+
+// interface QuestionBreakdownProps {
+//   questions: any[]
+// }
+
+// function QuestionBreakdown({ questions }: QuestionBreakdownProps) {
+//   const [expandedIds, setExpandedIds] = useState<Set<string | number>>(new Set())
+
+//   if (!questions || questions.length === 0) {
+//     return null
+//   }
+
+//   const toggle = (id: string | number) => {
+//     setExpandedIds((prev) => {
+//       const next = new Set(prev)
+//       if (next.has(id)) {
+//         next.delete(id)
+//       } else {
+//         next.add(id)
+//       }
+//       return next
+//     })
+//   }
+
+//   return (
+//     <div className="card question-breakdown-card">
+//       <h3>Question-by-question breakdown</h3>
+//       <div className="question-breakdown-list">
+//         {questions.map((q: any) => {
+//           const isExpanded = expandedIds.has(q.question_id)
+//           const isAnswered = q.is_answered
+
+//           return (
+//             <div
+//               key={q.question_id}
+//               className={`question-item ${isAnswered ? 'answered' : 'unanswered'}`}
+//             >
+//               <button
+//                 type="button"
+//                 className="question-header"
+//                 onClick={() => toggle(q.question_id)}
+//               >
+//                 <div className="question-header-main">
+//                   <span className="question-label">
+//                     Q{q.question_sequence}
+//                     {q.question_title ? ` - ${q.question_title}` : ''}
+//                   </span>
+//                   {q.is_reflection && (
+//                     <span className="question-tag">Reflection</span>
+//                   )}
+//                 </div>
+//                 <div className="question-header-meta">
+//                   <span className={`question-status ${isAnswered ? 'status-answered' : 'status-unanswered'}`}>
+//                     {isAnswered ? 'Answered' : 'Unanswered'}
+//                   </span>
+//                   <span className="question-toggle-indicator">
+//                     {isExpanded ? 'Hide details' : 'View details'}
+//                   </span>
+//                 </div>
+//               </button>
+
+//               {isExpanded && (
+//                 <div className="question-body">
+//                   <div className="question-row">
+//                     <span className="question-row-label">Element</span>
+//                     <span className="question-row-value">{q.element ?? '-'}</span>
+//                   </div>
+//                   {q.question_suite && (
+//                     <div className="question-row">
+//                       <span className="question-row-label">Suite</span>
+//                       <span className="question-row-value">{q.question_suite}</span>
+//                     </div>
+//                   )}
+
+//                   {isAnswered ? (
+//                     <>
+//                       <div className="question-row">
+//                         <span className="question-row-label">Selected option</span>
+//                         <span className="question-row-value">
+//                           {q.answer_text ?? 'N/A'}
+//                           {typeof q.option_number === 'number' && (
+//                             <span className="question-row-sub">
+//                               Option {q.option_number}
+//                             </span>
+//                           )}
+//                         </span>
+//                       </div>
+//                       <div className="question-row">
+//                         <span className="question-row-label">Value</span>
+//                         <span className="question-row-value">
+//                           {q.answer_value ?? '-'} / {q.max_score ?? '-'}
+//                         </span>
+//                       </div>
+//                       {q.numeric_value !== null && q.numeric_value !== undefined && (
+//                         <div className="question-row">
+//                           <span className="question-row-label">Numeric value</span>
+//                           <span className="question-row-value">{q.numeric_value}</span>
+//                         </div>
+//                       )}
+//                       {q.text_answer && (
+//                         <div className="question-row">
+//                           <span className="question-row-label">Text answer</span>
+//                           <span className="question-row-value">{q.text_answer}</span>
+//                         </div>
+//                       )}
+//                     </>
+//                   ) : (
+//                     <div className="question-row">
+//                       <span className="question-row-label">Answer</span>
+//                       <span className="question-row-value question-row-unanswered">
+//                         This question has not been answered yet.
+//                       </span>
+//                     </div>
+//                   )}
+
+//                   {q.is_reflection && q.reflection_prompt && (
+//                     <div className="question-row">
+//                       <span className="question-row-label">Reflection prompt</span>
+//                       <span className="question-row-value">{q.reflection_prompt}</span>
+//                     </div>
+//                   )}
+//                 </div>
+//               )}
+//             </div>
+//           )
+//         })}
+//       </div>
+//     </div>
+//  )
+//}
