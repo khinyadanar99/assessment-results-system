@@ -9,9 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
+    "axios": "^1.6.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "axios": "^1.6.0"
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
@@ -19,5 +21,10 @@
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "^5.2.2",
     "vite": "^5.0.8"
-  }
+  },
+  "description": "- **React 18** - UI library - **TypeScript** - Type safety - **Vite** - Build tool and dev server - **Axios** - HTTP client - **Plain CSS** - No framework dependency",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

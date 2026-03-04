@@ -1,5 +1,16 @@
-import { useEffect, useState } from 'react'
-import axios from 'axios'
+import { useQuery } from '@tanstack/react-query'
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts'
 import './AssessmentResults.css'
 
 interface AssessmentResults {
@@ -29,39 +40,33 @@ interface Props {
   instanceId: string
 }
 
+const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8002'
+
+async function fetchAssessmentResults(instanceId: string) {
+  const response = await fetch(`${API_URL}/api/assessment/results/${instanceId}`)
+
+  
+  return await response.json()
+}
+
 export default function AssessmentResults({ instanceId }: Props) {
-  const [results, setResults] = useState<AssessmentResults | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const {
+    data: results,
+    isLoading,
+    isError,
+    error,
+  } = useQuery<AssessmentResults, Error>({
+    queryKey: ['assessment-results', instanceId],
+    queryFn: () => fetchAssessmentResults(instanceId),
+    enabled: !!instanceId,
+  })
 
-  useEffect(() => {
-    if (!instanceId) return
-
-    const fetchResults = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:8002'}/api/assessment/results/${instanceId}`
-        )
-        setResults(response.data)
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to load assessment results')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchResults()
-  }, [instanceId])
-
-  if (loading) {
+  if (isLoading) {
     return <div className="loading">Loading results...</div>
   }
 
-  if (error) {
-    return <div className="error">Error: {error}</div>
+  if (isError) {
+    return <div className="error">Error: {error.message}</div>
   }
 
   if (!results) {
@@ -74,6 +79,32 @@ export default function AssessmentResults({ instanceId }: Props) {
     return '#e74c3c'
   }
 
+  const scorePercentage = results.scores.percentage
+
+  const gaugeSegments = [
+    { value: 60 },
+    { value: 20 },
+    { value: 20 },
+  ]
+
+  const gaugeColors = ['#e74c3c', '#f39c12', '#27ae60']
+
+  const nonReflectionQuestionScores =
+    Object.values(results.element_scores)
+      .flatMap((elementScore: any) => elementScore.question_answers || [])
+      .filter((q: any) => !q.is_reflection)
+      .map((q: any) => {
+        const max = q.max_score || 0
+        const value = q.answer_value ?? 0
+        const percentage =
+          max > 1 && value > 0? Math.round(((value - 1) / (max - 1)) * 100) : 0
+
+        return {
+          name: `Q${q.question_sequence}`,
+          score: percentage,
+        }
+      })
+
   return (
     <div className="assessment-results">
       <div className="results-header">
@@ -81,7 +112,8 @@ export default function AssessmentResults({ instanceId }: Props) {
         <p className="instance-id">Instance: {results.instance.id}</p>
       </div>
 
-      {/* Progress Card */}
+      <div style={{display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap'}}>
+        {/* Progress Card */}
       <div className="card progress-card">
         <h3>Progress</h3>
         <div className="progress-circle">
@@ -120,18 +152,53 @@ export default function AssessmentResults({ instanceId }: Props) {
       <div className="card score-card">
         <h3>Overall Score</h3>
         <div className="score-display">
-          <div
-            className="score-percentage"
-            style={{ color: getScoreColor(results.scores.percentage) }}
-          >
-            {results.scores.percentage}%
+          <div className="score-gauge">
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie
+                  data={gaugeSegments}
+                  dataKey="value"
+                  startAngle={180}
+                  endAngle={0}
+                  cx="50%"
+                  cy="100%"
+                  innerRadius={70}
+                  outerRadius={100}
+                  stroke="none"
+                >
+                  {gaugeSegments.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={gaugeColors[index]} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+
+            <div
+              className="score-gauge-needle"
+              style={{
+                transform: `rotate(${(scorePercentage*1.8)-90}deg)`,
+                borderBottomColor: getScoreColor(scorePercentage),
+              }}
+            />
+
+            <div className="score-gauge-center">
+              <span
+                className="score-percentage"
+                style={{ color: getScoreColor(scorePercentage) }}
+              >
+                {scorePercentage}%
+              </span>
+            </div>
           </div>
+
           <div className="score-details">
             <p>{results.scores.total_score} / {results.scores.max_score} points</p>
             <p className="score-note">Normalized from 1-5 scale</p>
           </div>
         </div>
       </div>
+      </div>
+      
 
       {/* Element Scores */}
       {Object.keys(results.element_scores).length > 0 && (
@@ -164,6 +231,38 @@ export default function AssessmentResults({ instanceId }: Props) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Question Scores (non-reflection) */}
+      {nonReflectionQuestionScores.length > 0 && (
+        <div className="card question-scores-card">
+          <h3>Scores per Question</h3>
+          <div className="question-scores-chart">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart
+                data={nonReflectionQuestionScores}
+                margin={{ top: 10, right: 20, left: 0, bottom: 40 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  label={{ value: 'Questions', position: 'insideBottom', offset: -20 }}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tickFormatter={(v) => `${v}%`}
+                  label={{ value: 'Score (%)', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip formatter={(value: any) => `${value}%`} />
+                <Bar
+                  dataKey="score"
+                  radius={[4, 4, 0, 0]}
+                  fill="#3498db"
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}
