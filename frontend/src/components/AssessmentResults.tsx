@@ -54,7 +54,7 @@ async function fetchAssessmentResults(instanceId: string) {
 }
 
 export default function AssessmentResults({ instanceId }: Props) {
-  const [questionFilter, setQuestionFilter] = useState<'all' | 'answered' | 'unanswered'>('all')
+  const [questionFilter, setQuestionFilter] = useState<'all' | 'answered' | 'unanswered' | 'reflection'>('all')
 
   const {
     data: results,
@@ -115,8 +115,9 @@ export default function AssessmentResults({ instanceId }: Props) {
     .flatMap((elementScore: any) => elementScore.question_answers || [])
 
   const filteredQuestions = allQuestions.filter((q: any) => {
-    if (questionFilter === 'answered') return q.is_answered
-    if (questionFilter === 'unanswered') return !q.is_answered
+    if (questionFilter === 'answered') return q.is_answered && !q.is_reflection
+    if (questionFilter === 'unanswered') return !q.is_answered && !q.is_reflection
+    if (questionFilter === 'reflection') return q.is_reflection
     return true
   })
 
@@ -250,18 +251,6 @@ export default function AssessmentResults({ instanceId }: Props) {
         </div>
       )}
 
-      {/* { Object.values(results.element_scores).length > 0 && (
-        <div className="card question-card">
-            {Object.values(results.element_scores)
-            .flatMap((elementScore: any) => elementScore.question_answers || [])
-            .map((question: any) => {
-              return <QuestionBreakdown question={question}></QuestionBreakdown>
-            }
-  
-            )}
-        </div>
-      )} */}
-
       {allQuestions.length > 0 && (
         <div className="card question-card">
           <h3>Question Breakdown</h3>
@@ -271,12 +260,13 @@ export default function AssessmentResults({ instanceId }: Props) {
               id="question-filter-select"
               value={questionFilter}
               onChange={(e) =>
-                setQuestionFilter(e.target.value as 'all' | 'answered' | 'unanswered')
+                setQuestionFilter(e.target.value as 'all' | 'answered' | 'unanswered' | 'reflection')
               }
             >
               <option value="all">All</option>
-              <option value="answered">Answered only</option>
-              <option value="unanswered">Unanswered only</option>
+              <option value="answered">Answered</option>
+              <option value="unanswered">Unanswered</option>
+              <option value="reflection">Reflectioin</option>
             </select>
           </div>
 
